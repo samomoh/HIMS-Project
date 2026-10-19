@@ -53,7 +53,7 @@ export async function currentUser(): Promise<AuthenticatedUser | null> {
   const session = verifySession(token);
   if (!session) return null;
   const user = await db.query.users.findFirst({ where: eq(users.id, session.uid) });
-  if (!user || user.role !== session.role || !ROLES.includes(user.role as Role) || session.ver !== createHash('sha256').update(user.passwordHash ?? '').digest('base64url').slice(0, 22)) return null;
+  if (!user || user.role !== session.role || user.sessionVersion !== session.sv || !ROLES.includes(user.role as Role) || session.ver !== createHash('sha256').update(user.passwordHash ?? '').digest('base64url').slice(0, 22)) return null;
   return {
     id: user.id, name: user.name, email: user.email, role: user.role as Role,
     department: user.department, contactNumber: user.contactNumber,

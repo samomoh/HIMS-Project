@@ -16,6 +16,7 @@ export const users = pgTable('users', {
   name: varchar('name', { length: 255 }).notNull(),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: varchar('password_hash', { length: 255 }), // Placeholder for auth integration
+  sessionVersion: integer('session_version').notNull().default(0),
   resetToken: varchar('reset_token', { length: 255 }), 
   resetTokenExpiry: timestamp('reset_token_expiry'),
   role: varchar('role', { length: 50 }).notNull(), // admin, doctor, specialist, nurse, patient, receptionist, pharmacist, laboratory, radiology, emergency, medical_records, health_authority, ict_support

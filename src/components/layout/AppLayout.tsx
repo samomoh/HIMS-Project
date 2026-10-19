@@ -120,7 +120,7 @@ export function AppLayout({ children, role }: { children: React.ReactNode; role:
             <div className="topbar-search"><Search size={16} /><span>Search workspace</span><kbd>⌘ K</kbd></div>
             <span className="topbar-divider" />
             <button className="icon-button" aria-label="Notifications"><Bell size={18} /><i /></button>
-            <button className="sign-out" onClick={async () => { await signOutAction(); window.location.assign('/auth/login'); }} aria-label="Sign out"><LogOut size={16} /><span>Sign out</span></button>
+            <button className="sign-out" onClick={async () => { try { await signOutAction(); } finally { window.location.assign('/auth/login'); } }} aria-label="Sign out"><LogOut size={16} /><span>Sign out</span></button>
           </div>
         </header>
         <main className="page-content">{children}</main>

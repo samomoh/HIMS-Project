@@ -1,10 +1,10 @@
 'use server';
 
 import { cookies, headers as requestHeaders } from 'next/headers';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { db } from '@/db';
 import { authRateLimits, users } from '@/db/schema';
-import { SESSION_COOKIE, SESSION_TTL_SECONDS, signSession, verifyPassword } from '@/lib/auth';
+import { currentUser, SESSION_COOKIE, SESSION_TTL_SECONDS, signSession, verifyPassword } from '@/lib/auth';
 import { consumeRateLimit, rateLimitKey } from '@/lib/rate-limit';
 
 export async function signInAction(email: string, password: string) {
@@ -20,7 +20,7 @@ export async function signInAction(email: string, password: string) {
   ]);
   if (emailLimited || clientLimited) return { success: false, message: 'Email or password is incorrect.' };
   const user = await db.query.users.findFirst({ where: eq(users.email, normalizedEmail) });
-  const dummyHash = `scrypt$${Buffer.alloc(16).toString('base64url')}$${Buffer.alloc(64).toString('base64url')}`;
+  const dummyHash = `scrypt$32768$${Buffer.alloc(16).toString('base64url')}$${Buffer.alloc(64).toString('base64url')}`;
   const valid = await verifyPassword(password, user?.passwordHash ?? dummyHash);
   if (!user || !valid) return { success: false, message: 'Email or password is incorrect.' };
 
@@ -41,5 +41,11 @@ export async function signInAction(email: string, password: string) {
 }
 
 export async function signOutAction() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const jar = await cookies();
+  try {
+    const user = await currentUser();
+    if (user) await db.update(users).set({ sessionVersion: sql`${users.sessionVersion} + 1` }).where(eq(users.id, user.id));
+  } finally {
+    jar.delete(SESSION_COOKIE);
+  }
 }

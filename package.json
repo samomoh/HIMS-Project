@@ -8,7 +8,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "bootstrap-admin": "tsx src/db/bootstrap-admin.ts",
-    "migrate-security": "tsx src/db/migrate-security.ts"
+    "seed-demo-accounts": "tsx src/db/seed-demo-accounts.ts",
+    "migrate-security": "tsx src/db/migrate-security.ts",
+    "db:push": "drizzle-kit push",
+    "db:setup": "drizzle-kit push && npm run seed-demo-accounts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.10",

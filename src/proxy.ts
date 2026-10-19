@@ -13,7 +13,7 @@ const permissions: Array<[string, Role[]]> = [
   ['/records', ['super_admin', 'admin', 'medical_records']],
   ['/authorities', ['super_admin', 'admin', 'health_authority']],
   ['/ict-support', ['super_admin', 'admin', 'ict_support']],
-  ['/id-cards', ['super_admin', 'admin', 'medical_records', 'ict_support']],
+  ['/id-cards', ['super_admin', 'admin']],
   ['/reports', ['super_admin', 'admin', 'medical_records', 'health_authority']],
   ['/audit-trail', ['super_admin', 'admin', 'health_authority', 'ict_support']],
   ['/ai-assistant', ['super_admin', 'doctor', 'specialist', 'nurse', 'emergency']],

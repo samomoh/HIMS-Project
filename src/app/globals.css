@@ -86,6 +86,15 @@ a { text-decoration: none; }
 .auth-notice { border: 1px solid #cbe8df; background: #f1faf6; color: #386c5e; }
 .auth-secondary { display: block; margin-top: 19px; text-align: center; }
 .auth-footnote { margin: 22px 0 0; padding-top: 15px; border-top: 1px solid #edf1f2; color: #94a1a7; font-size: 9px; text-align: center; }
+.demo-accounts { margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf1f2; }
+.demo-accounts h2 { margin: 0; color: #294956; font-size: 13px; }
+.demo-accounts > p { margin: 6px 0 10px; color: #75878e; font-size: 10px; }
+.demo-accounts code { color: #294956; font-weight: 700; }
+.demo-account-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; max-height: 210px; overflow: auto; }
+.demo-account-list button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px; border: 1px solid #e4ebed; border-radius: 7px; background: #fbfdfd; color: #294956; cursor: pointer; text-align: left; }
+.demo-account-list button:hover { border-color: #79b6ae; background: #f1f9f7; }
+.demo-account-list button span { font-size: 10px; font-weight: 700; }
+.demo-account-list button small { color: #85949a; font-size: 9px; }
 .auth-success-icon { display: grid; width: 48px; height: 48px; margin: 0 auto; place-items: center; border-radius: 50%; background: #e5f5ee; color: #408f70; }
 
 /* Bring existing section content into the same quiet, clinical visual language. */

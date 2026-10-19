@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { db } from '@/db';
 import { appointments, patients, users } from '@/db/schema';
 import { requireUser } from '@/lib/auth';
+import { logAuditTrail } from '@/lib/audit';
 
 export async function createAppointmentAction(data: { patientId: number; doctorId: number; appointmentDate: string; reason: string }) {
   const actor = await requireUser(['super_admin', 'admin', 'doctor', 'specialist', 'receptionist']);
@@ -16,7 +17,8 @@ export async function createAppointmentAction(data: { patientId: number; doctorI
     db.query.users.findFirst({ where: and(eq(users.id, data.doctorId), inArray(users.role, ['doctor', 'specialist'])) }),
   ]);
   if (!patient || !doctor) throw new Error('The selected patient or clinician is no longer available.');
-  await db.insert(appointments).values({ patientId: patient.id, doctorId: doctor.id, appointmentDate, reason: data.reason.trim() || null, status: 'Scheduled' });
+  const [created] = await db.insert(appointments).values({ patientId: patient.id, doctorId: doctor.id, appointmentDate, reason: data.reason.trim() || null, status: 'Scheduled' }).returning({ id: appointments.id });
+  await logAuditTrail(actor.id, 'Created Appointment', 'Appointments', `Created appointment #${created.id}`);
   await Promise.all([revalidatePath('/appointments'), revalidatePath('/')]);
   return { success: true };
 }

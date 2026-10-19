@@ -1,7 +1,7 @@
 'use server';
 
 import { randomBytes } from 'node:crypto';
-import { and, eq, gt } from 'drizzle-orm';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import { headers as requestHeaders } from 'next/headers';
 import { db } from '@/db';
 import { users } from '@/db/schema';
@@ -78,7 +78,7 @@ export async function verifyAndResetPasswordAction(token: string, newPassword: s
     return { success: false, message: error instanceof Error ? error.message : 'Password does not meet the requirements.' };
   }
 
-  const [user] = await db.update(users).set({ passwordHash, resetToken: null, resetTokenExpiry: null })
+  const [user] = await db.update(users).set({ passwordHash, resetToken: null, resetTokenExpiry: null, sessionVersion: sql`${users.sessionVersion} + 1` })
     .where(and(eq(users.id, validToken.id), eq(users.resetToken, tokenHash), gt(users.resetTokenExpiry, new Date())))
     .returning({ id: users.id });
   if (!user) return { success: false, message: 'This reset link is invalid or has expired.' };

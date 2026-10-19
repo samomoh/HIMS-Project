@@ -1,9 +1,12 @@
-import 'dotenv/config';
+import './load-local-env';
 import { getPool } from './index';
 
 async function migrate() {
   const pool = getPool();
   try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS session_version integer NOT NULL DEFAULT 0;
+    `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS auth_rate_limits (
         key varchar(255) PRIMARY KEY,

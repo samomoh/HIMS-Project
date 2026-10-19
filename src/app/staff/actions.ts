@@ -43,17 +43,12 @@ export async function deleteStaffAction(id: number) {
 }
 
 export async function batchCreateStaffAction(staffList: { name: string; email: string; role: string }[]) {
-  await requireUser(['super_admin']);
-  if (!Array.isArray(staffList) || staffList.length > 100) throw new Error('Import between 1 and 100 staff records.');
-  // Simple loop to insert ignoring errors if duplicate email
-  for (const staff of staffList) {
-    try {
-      const validStaff = validateStaff(staff);
-      const [created] = await db.insert(users).values(validStaff).onConflictDoNothing({ target: users.email }).returning({ email: users.email });
-      if (created) await requestPasswordResetAction(created.email);
-    } catch (err) {
-      console.error('Skipping duplicate or invalid staff:', staff.email);
-    }
-  }
+  const actor = await requireUser(['super_admin']);
+  if (!Array.isArray(staffList) || staffList.length === 0 || staffList.length > 100) throw new Error('Import between 1 and 100 staff records.');
+  const staffRecords = staffList.map(validateStaff);
+  const created = await db.transaction(async (tx) => tx.insert(users).values(staffRecords)
+    .onConflictDoNothing({ target: users.email }).returning({ email: users.email }));
+  await Promise.all(created.map((item) => requestPasswordResetAction(item.email)));
+  await logAuditTrail(actor.id, 'Imported Staff', 'Staff Management', `Imported ${created.length} staff accounts.`);
   revalidatePath('/staff');
 }

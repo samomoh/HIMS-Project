@@ -5,6 +5,7 @@ import { vitals, medicationAdministrations, prescriptions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
+import { logAuditTrail } from '@/lib/audit';
 
 export async function recordVitalsAction(data: {
   patientId: number;
@@ -32,6 +33,7 @@ export async function recordVitalsAction(data: {
     height: data.height.toString(),
     notes: data.notes,
   });
+  await logAuditTrail(actor.id, 'Recorded Vitals', 'Nursing', `Recorded vitals for patient #${data.patientId}`);
   
   revalidatePath('/nursing');
   revalidatePath(`/patients/${data.patientId}`);
@@ -51,6 +53,7 @@ export async function administerMedicationAction(data: {
     nurseId: actor.id,
     notes: data.notes,
   });
+  await logAuditTrail(actor.id, 'Administered Medication', 'Nursing', `Administered prescription #${data.prescriptionId}`);
 
   revalidatePath('/nursing');
 }

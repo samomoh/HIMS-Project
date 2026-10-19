@@ -5,9 +5,10 @@ import { prescriptions, inventory } from '@/db/schema';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
+import { logAuditTrail } from '@/lib/audit';
 
 export async function dispenseMedicationAction(prescriptionId: number, medicationName: string, quantityToDeduct: number) {
-  await requireUser(['super_admin', 'admin', 'doctor', 'pharmacist']);
+  const actor = await requireUser(['super_admin', 'admin', 'doctor', 'pharmacist']);
   if (!Number.isSafeInteger(prescriptionId) || prescriptionId <= 0 || !Number.isSafeInteger(quantityToDeduct) || quantityToDeduct <= 0 || !medicationName.trim() || medicationName.length > 255) {
     throw new Error('Invalid dispensing request.');
   }
@@ -23,6 +24,7 @@ export async function dispenseMedicationAction(prescriptionId: number, medicatio
       .where(and(eq(inventory.id, item.id), gte(inventory.stockLevel, quantityToDeduct))).returning({ id: inventory.id });
     if (!updated) throw new Error('Insufficient stock to dispense this quantity.');
   });
+  await logAuditTrail(actor.id, 'Dispensed Medication', 'Pharmacy', `Dispensed prescription #${prescriptionId}`);
 
   revalidatePath('/pharmacy');
   revalidatePath('/patients');
@@ -35,11 +37,12 @@ export async function updateInventoryAction(data: {
   reorderLevel: number;
   unitPrice: string;
 }) {
-  await requireUser(['super_admin', 'admin', 'pharmacist']);
+  const actor = await requireUser(['super_admin', 'admin', 'pharmacist']);
   const price = Number(data.unitPrice);
   if (!data.medicationName.trim() || data.medicationName.length > 255 || !Number.isSafeInteger(data.stockLevel) || data.stockLevel < 0 || !Number.isSafeInteger(data.reorderLevel) || data.reorderLevel < 0 || !Number.isFinite(price) || price < 0 || data.unitPrice.length > 20) {
     throw new Error('Invalid inventory values.');
   }
+  await logAuditTrail(actor.id, data.id ? 'Updated Inventory' : 'Added Inventory', 'Pharmacy', `${data.id ? 'Updated' : 'Added'} inventory item ${data.medicationName.trim()}`);
   if (data.id) {
     await db.update(inventory).set({
       medicationName: data.medicationName,
