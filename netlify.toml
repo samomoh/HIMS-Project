@@ -1,0 +1,19 @@
+# Netlify configuration for HealthAI HMIS (Next.js App Router)
+#
+# REQUIRED RUNTIME ENVIRONMENT VARIABLES (set these in the Netlify UI —
+# Site configuration → Environment variables — never commit secrets here):
+#
+#   DATABASE_URL   postgres connection string, e.g.
+#                  postgresql://user:pass@host:5432/dbname
+#   DATABASE_SSL   "true" if your managed Postgres (Neon/Supabase/RDS…)
+#                  requires TLS (most do). Omit for plain local Postgres.
+#
+# The app's DB client is lazy: it only connects when a request runs a query,
+# so DATABASE_URL is NOT needed during `next build` — only at runtime.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
