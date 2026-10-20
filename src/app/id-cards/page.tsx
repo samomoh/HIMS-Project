@@ -1,14 +1,23 @@
 import { db } from '@/db';
-import { users } from '@/db/schema';
-import { desc } from 'drizzle-orm';
+import { staffPhotos, users } from '@/db/schema';
+import { desc, eq, ne } from 'drizzle-orm';
 import IDCardClient from './IDCardClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function IDCardsPage() {
-  const staffMembers = await db.query.users.findMany({
-    orderBy: [desc(users.createdAt)],
-  });
+  const staffMembers = await db.select({
+    id: users.id,
+    name: users.name,
+    email: users.email,
+    role: users.role,
+    department: users.department,
+    contactNumber: users.contactNumber,
+    hireDate: users.hireDate,
+    licenseNumber: users.licenseNumber,
+    photoMimeType: staffPhotos.photoMimeType,
+    createdAt: users.createdAt,
+  }).from(users).leftJoin(staffPhotos, eq(staffPhotos.userId, users.id)).where(ne(users.role, 'patient')).orderBy(desc(users.createdAt));
 
   return (
     <div className="space-y-6">

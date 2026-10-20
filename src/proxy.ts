@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Role, SESSION_COOKIE, verifySession } from '@/lib/session-token';
 
 const permissions: Array<[string, Role[]]> = [
-  ['/staff', ['super_admin']],
+  ['/staff', ['super_admin', 'admin', 'hr']],
   ['/physician', ['super_admin', 'admin', 'doctor']],
   ['/specialist', ['super_admin', 'admin', 'specialist']],
   ['/nursing', ['super_admin', 'admin', 'nurse']],
@@ -17,11 +17,13 @@ const permissions: Array<[string, Role[]]> = [
   ['/reports', ['super_admin', 'admin', 'medical_records', 'health_authority']],
   ['/audit-trail', ['super_admin', 'admin', 'health_authority', 'ict_support']],
   ['/ai-assistant', ['super_admin', 'doctor', 'specialist', 'nurse', 'emergency']],
+  ['/emergency/external-lab', ['super_admin', 'admin', 'emergency', 'medical_records']],
+  ['/emergency/external-lab-file', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'emergency', 'medical_records']],
   ['/emergency', ['super_admin', 'admin', 'emergency', 'doctor', 'nurse']],
   ['/appointments', ['super_admin', 'admin', 'doctor', 'specialist', 'receptionist']],
   ['/patients', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'medical_records']],
   ['/settings', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support']],
-  ['/', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support']],
+  ['/', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support', 'hr']],
 ];
 
 const isPublic = (path: string) =>

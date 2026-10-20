@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     
     const [newPatient] = await db.insert(patients).values(input).returning();
 
-    await logAuditTrail(actor.id, 'Created Patient', 'Patients', `Created patient record #${newPatient.id}`);
+    await logAuditTrail(actor.id, 'Created Patient', 'Patients', `Created ${newPatient.patientCategory.toLowerCase()} patient record #${newPatient.id}`);
 
     return NextResponse.json(newPatient);
   } catch (error) {

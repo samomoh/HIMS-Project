@@ -19,7 +19,7 @@ export async function updateStaffIDDetailsAction(id: number, data: {
 }) {
   const actor = await requireUser(['super_admin', 'admin']);
   if (!Number.isSafeInteger(id) || id <= 0 || !data.name.trim() || data.name.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim()) || !ROLES.includes(data.role as (typeof ROLES)[number])) throw new Error('Staff ID details are invalid.');
-  const existing = await db.query.users.findFirst({ where: eq(users.id, id) });
+  const existing = await db.query.users.findFirst({ where: eq(users.id, id), columns: { id: true, role: true } });
   if (!existing) throw new Error('Staff account not found.');
   if (actor.role !== 'super_admin' && existing.role !== data.role) throw new Error('Only a super administrator can change staff roles.');
   await db.update(users).set({

@@ -13,6 +13,8 @@ type Stats = {
     referred: number;
     procedure: number;
     pharmacy: number;
+    referredIn: number;
+    deaths: number;
   };
 };
 
@@ -209,7 +211,7 @@ export default function AuthoritiesClient({
             <h3 className="text-lg font-bold text-gray-900 mb-2">Hospital Efficacy & Clinical Decisions</h3>
             <p className="text-sm text-gray-600 mb-6">Aggregated breakdown of primary clinical outcomes following diagnostic reviews.</p>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="bg-purple-50 rounded-lg p-4 border border-purple-100 flex flex-col justify-center items-center text-center">
                 <span className="text-purple-700 text-sm font-bold uppercase tracking-wider mb-2">Internal Admissions</span>
                 <span className="text-4xl font-black text-purple-900">{stats.outcomes.admitted}</span>
@@ -229,12 +231,22 @@ export default function AuthoritiesClient({
                 <span className="text-orange-700 text-sm font-bold uppercase tracking-wider mb-2">Referred Out</span>
                 <span className="text-4xl font-black text-orange-900">{stats.outcomes.referred}</span>
               </div>
+
+              <div className="bg-teal-50 rounded-lg p-4 border border-teal-100 flex flex-col justify-center items-center text-center">
+                <span className="text-teal-700 text-sm font-bold uppercase tracking-wider mb-2">Total Referred In</span>
+                <span className="text-4xl font-black text-teal-900">{stats.outcomes.referredIn}</span>
+              </div>
+
+              <div className="bg-gray-100 rounded-lg p-4 border border-gray-200 flex flex-col justify-center items-center text-center">
+                <span className="text-gray-700 text-sm font-bold uppercase tracking-wider mb-2">Total Death</span>
+                <span className="text-4xl font-black text-gray-900">{stats.outcomes.deaths}</span>
+              </div>
             </div>
             
             <div className="mt-6 border-t border-gray-100 pt-4">
                <p className="text-xs text-gray-500 flex items-center justify-center">
                  <CheckCircle className="w-3 h-3 mr-1" />
-                 Total calculated from explicit decisions recorded during Physician Results Review workflows.
+                 Counts combine clinical decisions, patient intake categories, and recorded Emergency outcomes.
                </p>
             </div>
           </div>

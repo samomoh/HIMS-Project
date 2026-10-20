@@ -56,7 +56,7 @@ export default function LoginForm({ demoPassword }: { demoPassword: string | nul
               ['Specialist', 'specialist'], ['Nurse', 'nurse'], ['Receptionist', 'receptionist'],
               ['Pharmacist', 'pharmacist'], ['Laboratory', 'laboratory'], ['Radiology', 'radiology'],
               ['Emergency', 'emergency'], ['Medical records', 'medical_records'],
-              ['Health authority', 'health_authority'], ['ICT support', 'ict_support'],
+              ['Health authority', 'health_authority'], ['ICT support', 'ict_support'], ['Human Resources', 'hr'],
             ].map(([label, role]) => <button type="button" key={role} onClick={() => { setEmail(`${role.replaceAll('_', '.')}@example.test`); setPassword(demoPassword); }}>
               <span>{label}</span><small>{role.replaceAll('_', ' ')}</small>
             </button>)}

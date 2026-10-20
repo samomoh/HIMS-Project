@@ -2,6 +2,7 @@ import { db } from '@/db';
 import { patients } from '@/db/schema';
 import { desc, ilike, or } from 'drizzle-orm';
 import PatientsClient from './PatientsClient';
+import { currentUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +12,7 @@ export default async function PatientsPage({
   searchParams: Promise<{ q?: string }>
 }) {
   const query = (await searchParams).q;
+  const actor = await currentUser();
 
   let patientsData;
   if (query) {
@@ -36,11 +38,12 @@ export default async function PatientsPage({
     dob: typeof p.dob === 'string' ? p.dob : new Date(p.dob as any).toISOString().split('T')[0],
     gender: p.gender,
     contact: p.contact,
+    patientCategory: p.patientCategory,
     bloodGroup: p.bloodGroup,
     createdAt: p.createdAt
   }));
 
   return (
-    <PatientsClient initialPatients={formattedPatients} query={query} />
+    <PatientsClient initialPatients={formattedPatients} query={query} canDelete={actor?.role === 'admin' || actor?.role === 'super_admin'} />
   );
 }

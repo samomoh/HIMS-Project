@@ -19,7 +19,7 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
 }
 
 const navigation = [
-  { name: 'Overview', href: '/', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support'] },
+  { name: 'Overview', href: '/', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support', 'hr'] },
   { name: 'Patients', href: '/patients', icon: Users, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'medical_records'] },
   { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'receptionist'] },
   { name: 'Emergency unit', href: '/emergency', icon: Siren, roles: ['super_admin', 'admin', 'emergency', 'doctor', 'nurse'] },
@@ -34,7 +34,7 @@ const navigation = [
   { name: 'Reports', href: '/reports', icon: FileText, roles: ['super_admin', 'admin', 'medical_records', 'health_authority'] },
   { name: 'Health authorities', href: '/authorities', icon: Landmark, roles: ['super_admin', 'admin', 'health_authority'] },
   { name: 'AI assistant', href: '/ai-assistant', icon: Bot, roles: ['super_admin', 'doctor', 'specialist', 'nurse', 'emergency'] },
-  { name: 'Staff', href: '/staff', icon: UserCog, roles: ['super_admin'] },
+  { name: 'Staff', href: '/staff', icon: UserCog, roles: ['super_admin', 'admin', 'hr'] },
   { name: 'ID cards', href: '/id-cards', icon: Badge, roles: ['super_admin', 'admin'] },
   { name: 'ICT support', href: '/ict-support', icon: ServerCog, roles: ['super_admin', 'admin', 'ict_support'] },
   { name: 'Audit trail', href: '/audit-trail', icon: Eye, roles: ['super_admin', 'admin', 'health_authority', 'ict_support'] },
@@ -47,6 +47,7 @@ const roleLabels: Record<string, string> = {
   pharmacist: 'Pharmacy', laboratory: 'Laboratory', radiology: 'Radiology',
   emergency: 'Emergency staff', medical_records: 'Medical records',
   health_authority: 'Health authority', ict_support: 'ICT support',
+  hr: 'Human resources',
 };
 
 function Sidebar({ onNavigate, mobile = false, role }: { onNavigate?: () => void; mobile?: boolean; role: Role }) {

@@ -5,7 +5,7 @@ export const SESSION_TTL_SECONDS = 60 * 60 * 8;
 export const ROLES = [
   'super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist',
   'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records',
-  'health_authority', 'ict_support',
+  'health_authority', 'ict_support', 'hr',
 ] as const;
 export type Role = (typeof ROLES)[number];
 export type SessionPayload = { uid: number; role: Role; exp: number; nonce: string; sv: number; ver: string };

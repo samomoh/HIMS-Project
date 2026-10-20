@@ -8,8 +8,11 @@ import {
   boolean,
   decimal,
   date,
+  customType,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
@@ -19,12 +22,19 @@ export const users = pgTable('users', {
   sessionVersion: integer('session_version').notNull().default(0),
   resetToken: varchar('reset_token', { length: 255 }), 
   resetTokenExpiry: timestamp('reset_token_expiry'),
-  role: varchar('role', { length: 50 }).notNull(), // admin, doctor, specialist, nurse, patient, receptionist, pharmacist, laboratory, radiology, emergency, medical_records, health_authority, ict_support
+  role: varchar('role', { length: 50 }).notNull(), // super_admin, admin, hr, doctor, specialist, nurse, patient, receptionist, pharmacist, laboratory, radiology, emergency, medical_records, health_authority, ict_support
   department: varchar('department', { length: 100 }),
   contactNumber: varchar('contact_number', { length: 50 }),
   hireDate: date('hire_date'),
   licenseNumber: varchar('license_number', { length: 100 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const staffPhotos = pgTable('staff_photos', {
+  userId: integer('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  photoData: bytea('photo_data').notNull(),
+  photoMimeType: varchar('photo_mime_type', { length: 32 }).notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
 });
 
 export const recordAudits = pgTable('record_audits', {
@@ -82,6 +92,7 @@ export const patients = pgTable('patients', {
   dob: date('dob').notNull(),
   gender: varchar('gender', { length: 20 }).notNull(),
   contact: varchar('contact', { length: 50 }).notNull(),
+  patientCategory: varchar('patient_category', { length: 30 }).notNull().default('Walked in'),
   address: text('address'),
   bloodGroup: varchar('blood_group', { length: 10 }),
   emergencyContact: varchar('emergency_contact', { length: 50 }),
@@ -125,6 +136,18 @@ export const vitals = pgTable('vitals', {
   oxygenSaturation: integer('oxygen_saturation'), // percentage
   weight: decimal('weight', { precision: 6, scale: 2 }), // kg
   height: decimal('height', { precision: 6, scale: 2 }), // cm
+  notes: text('notes'),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+});
+
+export const patientTriage = pgTable('patient_triage', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').references(() => patients.id).notNull(),
+  staffId: integer('staff_id').references(() => users.id).notNull(),
+  vitalsId: integer('vitals_id').references(() => vitals.id).notNull(),
+  triageLevel: varchar('triage_level', { length: 50 }).notNull(),
+  chiefComplaint: text('chief_complaint').notNull(),
+  painScore: integer('pain_score').notNull(),
   notes: text('notes'),
   recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 });
@@ -229,6 +252,7 @@ export const patientsRelations = relations(patients, ({ one, many }) => ({
   prescriptions: many(prescriptions),
   invoices: many(invoices),
   vitals: many(vitals),
+  triages: many(patientTriage),
 }));
 
 export const appointmentsRelations = relations(appointments, ({ one }) => ({
@@ -295,6 +319,21 @@ export const vitalsRelations = relations(vitals, ({ one }) => ({
   nurse: one(users, {
     fields: [vitals.nurseId],
     references: [users.id],
+  }),
+}));
+
+export const patientTriageRelations = relations(patientTriage, ({ one }) => ({
+  patient: one(patients, {
+    fields: [patientTriage.patientId],
+    references: [patients.id],
+  }),
+  staff: one(users, {
+    fields: [patientTriage.staffId],
+    references: [users.id],
+  }),
+  vitals: one(vitals, {
+    fields: [patientTriage.vitalsId],
+    references: [vitals.id],
   }),
 }));
 

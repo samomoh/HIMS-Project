@@ -1,6 +1,6 @@
 import { db } from '@/db';
-import { recordAudits, medicalRecords, patients, labResults } from '@/db/schema';
-import { desc, sql } from 'drizzle-orm';
+import { recordAudits, medicalRecords, patients, labResults, emergencyTriage } from '@/db/schema';
+import { desc, eq, sql } from 'drizzle-orm';
 import AuthoritiesClient from './AuthoritiesClient';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,8 @@ export default async function AuthoritiesPage() {
   const [{ referredCount }] = await db.select({ referredCount: sql<number>`count(*)` }).from(medicalRecords).where(sql`${medicalRecords.decisionType} = 'Refer Out'`);
   const [{ procedureCount }] = await db.select({ procedureCount: sql<number>`count(*)` }).from(medicalRecords).where(sql`${medicalRecords.decisionType} = 'Procedure/Surgery'`);
   const [{ pharmacyCount }] = await db.select({ pharmacyCount: sql<number>`count(*)` }).from(medicalRecords).where(sql`${medicalRecords.decisionType} = 'Pharmacy'`);
+  const [{ referredInCount }] = await db.select({ referredInCount: sql<number>`count(*)` }).from(patients).where(eq(patients.patientCategory, 'Referred In'));
+  const [{ deathCount }] = await db.select({ deathCount: sql<number>`count(*)` }).from(emergencyTriage).where(eq(emergencyTriage.status, 'Deceased'));
 
   // Fetch recent compliance audits
   const recentAudits = await db.query.recordAudits.findMany({
@@ -43,6 +45,8 @@ export default async function AuthoritiesPage() {
       referred: Number(referredCount || 0),
       procedure: Number(procedureCount || 0),
       pharmacy: Number(pharmacyCount || 0),
+      referredIn: Number(referredInCount || 0),
+      deaths: Number(deathCount || 0),
     }
   };
 

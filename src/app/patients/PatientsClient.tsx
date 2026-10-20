@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Download, Upload, Plus, FileSpreadsheet, Search, UserCircle } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Download, Upload, Plus, FileSpreadsheet, Search, UserCircle, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { deletePatientAction } from './actions';
+import ConfirmDialog from '@/components/feedback/ConfirmDialog';
+import ToastNotice from '@/components/feedback/ToastNotice';
+import RecordViewToggle from '@/components/feedback/RecordViewToggle';
 
 type Patient = {
   id: number;
@@ -11,19 +15,47 @@ type Patient = {
   dob: string;
   gender: string;
   contact: string;
+  patientCategory: string;
   bloodGroup: string | null;
   createdAt: Date;
 };
 
 export default function PatientsClient({ 
   initialPatients,
-  query 
+  query,
+  canDelete,
 }: { 
   initialPatients: Patient[],
-  query?: string 
+  query?: string,
+  canDelete: boolean,
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [patientsList, setPatientsList] = useState(initialPatients);
+  const [viewMode, setViewMode] = useState<'list' | 'tile'>('list');
+  const [patientToDelete, setPatientToDelete] = useState<Patient | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toast, setToast] = useState({ message: '', tone: 'success' as 'success' | 'error' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const confirmDelete = async () => {
+    if (!patientToDelete) return;
+    setIsDeleting(true);
+    try {
+      const result = await deletePatientAction(patientToDelete.id);
+      if (!result.success) {
+        setToast({ message: result.message, tone: 'error' });
+        return;
+      }
+      setPatientsList((current) => current.filter((item) => item.id !== patientToDelete.id));
+      setToast({ message: `${patientToDelete.firstName} ${patientToDelete.lastName}'s patient record was deleted.`, tone: 'success' });
+      setPatientToDelete(null);
+    } catch (error) {
+      console.error(error);
+      setToast({ message: error instanceof Error ? error.message : 'Unable to delete this patient record.', tone: 'error' });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const downloadTemplate = () => {
     const csvContent = "firstName,lastName,dob,gender,contact,address,bloodGroup,emergencyContact\nJohn,Doe,1990-01-01,Male,+1234567890,123 Main St,O+,+0987654321\nJane,Smith,1985-05-15,Female,+1987654321,456 Oak St,A-,+1122334455";
@@ -37,9 +69,9 @@ export default function PatientsClient({
   };
 
   const exportData = () => {
-    const header = "id,firstName,lastName,dob,gender,contact,bloodGroup,createdAt\n";
-    const rows = initialPatients.map(p => 
-      `${p.id},"${p.firstName}","${p.lastName}","${p.dob}","${p.gender}","${p.contact}","${p.bloodGroup || ''}","${new Date(p.createdAt).toISOString()}"`
+    const header = "id,firstName,lastName,dob,gender,contact,patientCategory,bloodGroup,createdAt\n";
+    const rows = patientsList.map(p =>
+      `${p.id},"${p.firstName}","${p.lastName}","${p.dob}","${p.gender}","${p.contact}","${p.patientCategory}","${p.bloodGroup || ''}","${new Date(p.createdAt).toISOString()}"`
     ).join("\n");
     
     const blob = new Blob([header + rows], { type: 'text/csv' });
@@ -163,7 +195,7 @@ export default function PatientsClient({
         </div>
       </div>
 
-      <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm ring-1 ring-gray-200">
+      <div className="flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm ring-1 ring-gray-200">
         <form className="relative w-full max-w-md flex" action="/patients" method="GET">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
@@ -179,9 +211,10 @@ export default function PatientsClient({
             Search
           </button>
         </form>
+        <RecordViewToggle value={viewMode} onChange={setViewMode} />
       </div>
 
-      <div className="mt-8 flow-root">
+      <div className={`${viewMode === 'list' ? '' : 'hidden'} mt-8 flow-root`}>
         <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
             <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 sm:rounded-lg">
@@ -191,6 +224,7 @@ export default function PatientsClient({
                     <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">Name</th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Gender & DOB</th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Contact</th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Intake category</th>
                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Blood Group</th>
                     <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                       <span className="sr-only">Actions</span>
@@ -198,16 +232,16 @@ export default function PatientsClient({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {initialPatients.length === 0 ? (
+          {patientsList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-10 text-center text-sm text-gray-500">
+                      <td colSpan={6} className="py-10 text-center text-sm text-gray-500">
                         <UserCircle className="mx-auto h-12 w-12 text-gray-300" />
                         <h3 className="mt-2 text-sm font-semibold text-gray-900">No patients found</h3>
                         <p className="mt-1 text-sm text-gray-500">Get started by creating a new patient.</p>
                       </td>
                     </tr>
                   ) : (
-                    initialPatients.map((patient) => (
+                    patientsList.map((patient) => (
                       <tr key={patient.id} className="hover:bg-gray-50">
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                           <div className="flex items-center">
@@ -227,15 +261,23 @@ export default function PatientsClient({
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {patient.contact}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${patient.patientCategory === 'Emergency' ? 'bg-red-50 text-red-700' : patient.patientCategory === 'Referred In' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>
+                            {patient.patientCategory}
+                          </span>
+                        </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           <span className="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
                             {patient.bloodGroup || 'N/A'}
                           </span>
                         </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                          <Link href={`/patients/${patient.id}`} className="text-blue-600 hover:text-blue-900">
+                          <a href={`/patients/${patient.id}`} aria-label={`View patient ${patient.firstName} ${patient.lastName}`} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
                             View <span className="sr-only">, {patient.firstName}</span>
-                          </Link>
+                          </a>
+                          {canDelete && <button type="button" aria-label={`Delete ${patient.firstName} ${patient.lastName}`} onClick={() => setPatientToDelete(patient)} className="ml-3 inline-flex items-center text-red-600 hover:text-red-800">
+                            <Trash2 className="h-4 w-4" />
+                          </button>}
                         </td>
                       </tr>
                     ))
@@ -246,6 +288,50 @@ export default function PatientsClient({
           </div>
         </div>
       </div>
+      {viewMode === 'tile' && (patientsList.length === 0 ? (
+        <div className="rounded-xl bg-white px-6 py-12 text-center shadow-sm ring-1 ring-gray-200">
+          <UserCircle className="mx-auto h-12 w-12 text-gray-300" />
+          <h2 className="mt-3 text-sm font-semibold text-gray-900">No patients found</h2>
+          <p className="mt-1 text-sm text-gray-500">Try a different search or add a patient record.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {patientsList.map((patient) => (
+            <article key={patient.id} className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 transition-shadow hover:shadow-md">
+              <div className={`h-1.5 ${patient.patientCategory === 'Emergency' ? 'bg-red-500' : patient.patientCategory === 'Referred In' ? 'bg-violet-500' : 'bg-blue-600'}`} />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">{patient.firstName[0]}{patient.lastName[0]}</span>
+                    <div className="min-w-0"><h2 className="truncate font-semibold text-gray-900">{patient.firstName} {patient.lastName}</h2><p className="text-xs text-gray-500">Patient ID {patient.id}</p></div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${patient.patientCategory === 'Emergency' ? 'bg-red-50 text-red-700' : patient.patientCategory === 'Referred In' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{patient.patientCategory}</span>
+                </div>
+                <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-gray-100 pt-4 text-sm">
+                  <div><dt className="text-xs text-gray-500">Gender · Date of birth</dt><dd className="mt-1 font-medium text-gray-800">{patient.gender} · {new Date(patient.dob).toLocaleDateString()}</dd></div>
+                  <div><dt className="text-xs text-gray-500">Blood group</dt><dd className="mt-1 font-medium text-gray-800">{patient.bloodGroup || 'Not recorded'}</dd></div>
+                  <div className="col-span-2"><dt className="text-xs text-gray-500">Contact</dt><dd className="mt-1 font-medium text-gray-800">{patient.contact || 'Not recorded'}</dd></div>
+                </dl>
+                <div className="mt-5 flex items-center justify-between border-t border-gray-100 pt-4">
+                    <a href={`/patients/${patient.id}`} aria-label={`View patient ${patient.firstName} ${patient.lastName}`} className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">View patient</a>
+                  {canDelete && <button type="button" onClick={() => setPatientToDelete(patient)} className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" />Delete</button>}
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ))}
+      <ConfirmDialog
+        open={Boolean(patientToDelete)}
+        title="Delete patient record?"
+        message={patientToDelete ? `Delete ${patientToDelete.firstName} ${patientToDelete.lastName}'s record? This cannot be undone. Records with a linked account or clinical history are protected.` : ''}
+        confirmLabel="Delete patient"
+        tone="danger"
+        busy={isDeleting}
+        onCancel={() => setPatientToDelete(null)}
+        onConfirm={confirmDelete}
+      />
+      <ToastNotice message={toast.message} tone={toast.tone} onDismiss={() => setToast({ message: '', tone: toast.tone })} />
     </div>
   );
 }

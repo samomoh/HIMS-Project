@@ -4,34 +4,44 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import ConfirmDialog from '@/components/feedback/ConfirmDialog';
+import ToastNotice from '@/components/feedback/ToastNotice';
 
 export default function NewPatientPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingPatient, setPendingPatient] = useState<Record<string, FormDataEntryValue> | null>(null);
+  const [toast, setToast] = useState({ message: '', tone: 'success' as 'success' | 'error' });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
-    
+    setPendingPatient(Object.fromEntries(formData.entries()));
+  };
+
+  const confirmRegistration = async () => {
+    if (!pendingPatient) return;
+    setIsSubmitting(true);
     try {
       const response = await fetch('/api/patients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(pendingPatient),
       });
       
       if (response.ok) {
-        router.push('/patients');
+        const patient = await response.json();
+        setToast({ message: 'Patient registered. Opening triage…', tone: 'success' });
+        setPendingPatient(null);
         router.refresh();
+        window.setTimeout(() => router.push(`/patients/${patient.id}/triage`), 700);
       } else {
-        alert('Failed to create patient');
+        const result = await response.json().catch(() => null);
+        setToast({ message: result?.error || 'Failed to create patient.', tone: 'error' });
       }
     } catch (err) {
       console.error(err);
-      alert('An error occurred');
+      setToast({ message: 'An error occurred while registering the patient.', tone: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -51,6 +61,19 @@ export default function NewPatientPage() {
 
       <form onSubmit={handleSubmit} className="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden">
         <div className="p-6 space-y-8">
+          <section aria-labelledby="patient-category-heading" className="rounded-lg border border-blue-100 bg-blue-50/70 p-5">
+            <div className="mb-4">
+              <h2 id="patient-category-heading" className="text-base font-semibold text-gray-900">How did the patient arrive?</h2>
+              <p className="mt-1 text-sm text-gray-600">Choose the intake category to route and identify this registration.</p>
+            </div>
+            <label htmlFor="patientCategory" className="block text-sm font-medium text-gray-900">Patient category <span className="text-red-600">*</span></label>
+            <select required id="patientCategory" name="patientCategory" defaultValue="Walked in" className="mt-2 block w-full max-w-md rounded-md border-0 bg-white py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+              <option value="Walked in">Walked in</option>
+              <option value="Emergency">Emergency</option>
+              <option value="Referred In">Referred In</option>
+            </select>
+          </section>
+
           <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-6">
             <div className="sm:col-span-3">
               <label htmlFor="firstName" className="block text-sm font-medium leading-6 text-gray-900">First name</label>
@@ -130,6 +153,16 @@ export default function NewPatientPage() {
           </button>
         </div>
       </form>
+      <ConfirmDialog
+        open={Boolean(pendingPatient)}
+        title="Confirm patient registration"
+        message={pendingPatient ? `Register ${String(pendingPatient.firstName || '')} ${String(pendingPatient.lastName || '')} as a ${String(pendingPatient.patientCategory || 'Walked in').toLowerCase()} patient and continue to triage?` : ''}
+        confirmLabel="Register patient"
+        busy={isSubmitting}
+        onCancel={() => setPendingPatient(null)}
+        onConfirm={confirmRegistration}
+      />
+      <ToastNotice message={toast.message} tone={toast.tone} onDismiss={() => setToast({ message: '', tone: toast.tone })} />
     </div>
   );
 }

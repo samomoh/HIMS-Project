@@ -170,7 +170,9 @@ export default function IDCardClient({ staff }: { staff: Staff[] }) {
             <div className={`relative w-32 h-40 rounded-xl flex items-center justify-center border-2 border-dashed ${
               template === 'security' ? 'border-blue-700 bg-blue-800' : 'border-gray-300 bg-gray-100'
             }`}>
-              <User className={`h-16 w-16 ${template === 'security' ? 'text-blue-600' : 'text-gray-400'}`} />
+              {staffMember.photoMimeType
+                ? <img src={`/api/staff/${staffMember.id}/photo`} alt={`${staffMember.name} staff photo`} className="h-full w-full rounded-xl object-cover" />
+                : <User className={`h-16 w-16 ${template === 'security' ? 'text-blue-600' : 'text-gray-400'}`} />}
               {showEdit && (
                 <button 
                   onClick={() => openEditModal(staffMember)}
@@ -328,6 +330,7 @@ export default function IDCardClient({ staff }: { staff: Staff[] }) {
                     <option value="medical_records">Medical Records</option>
                     <option value="health_authority">Health Authority</option>
                     <option value="ict_support">ICT Support</option>
+                  <option value="hr">Human Resources</option>
                   </select>
                 </div>
                 <div>

@@ -48,6 +48,13 @@ export default function EmergencyClient({
 
   const [triageModalOpen, setTriageModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingLabReport, setIsUploadingLabReport] = useState(false);
+  const [externalLabReport, setExternalLabReport] = useState({
+    patientId: patients.length > 0 ? String(patients[0].id) : '',
+    testName: '',
+    reportDate: '',
+    notes: '',
+  });
   const [formData, setFormData] = useState({
     staffId: staffList.length > 0 ? staffList[0].id : 0,
     patientType: 'registered' as 'registered' | 'unidentified',
@@ -78,6 +85,7 @@ export default function EmergencyClient({
   const historyCases = initialTriage.filter((t: Triage) => t.status !== 'Active');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const externalLabFileInputRef = useRef<HTMLInputElement>(null);
 
   const downloadExternalTemplate = () => {
     const csvContent = "patientId,recordType,date,description,resultOrFindings\n1,Diagnosis,2023-05-12,Prior Hypertension,Patient taking Lisinopril 10mg\n1,Lab,2023-06-01,CBC from General Hosp,WBC elevated at 14.2";
@@ -164,6 +172,45 @@ export default function EmergencyClient({
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleExternalLabReportUpload = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formElement = e.currentTarget;
+    const file = externalLabFileInputRef.current?.files?.[0];
+    if (!file) {
+      showBanner({ kind: 'error', title: 'Select a report file', body: 'Choose a PDF or image of the previous lab result.' });
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showBanner({ kind: 'error', title: 'Report file is too large', body: 'The maximum upload size is 15 MB.' });
+      return;
+    }
+
+    setIsUploadingLabReport(true);
+    const payload = new FormData();
+    payload.set('patientId', externalLabReport.patientId);
+    payload.set('testName', externalLabReport.testName);
+    payload.set('reportDate', externalLabReport.reportDate);
+    payload.set('notes', externalLabReport.notes);
+    payload.set('file', file);
+    try {
+      const response = await fetch('/api/emergency/external-lab', { method: 'POST', body: payload });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) {
+        showBanner({ kind: 'error', title: 'Report upload failed', body: result?.error || `Upload could not be saved (HTTP ${response.status}).` });
+        return;
+      }
+      showBanner({ kind: 'success', title: 'Previous lab result uploaded', body: 'The report is now attached to the patient chart.' }, 5000);
+      formElement.reset();
+      setExternalLabReport({ patientId: patients.length > 0 ? String(patients[0].id) : '', testName: '', reportDate: '', notes: '' });
+      setTimeout(() => window.location.reload(), 900);
+    } catch (error) {
+      console.error(error);
+      showBanner({ kind: 'error', title: 'Report upload failed', body: 'Could not reach the upload service. Please try again.' });
+    } finally {
+      setIsUploadingLabReport(false);
+    }
   };
 
   const openTriageModal = () => {
@@ -352,9 +399,45 @@ export default function EmergencyClient({
       <div className="space-y-4">
         {activeTab === 'External Records' ? (
           <div className="bg-white shadow-sm ring-1 ring-gray-200 rounded-xl overflow-hidden p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-4">Bulk Import External Records</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">External Records Import</h2>
             <p className="text-sm text-gray-600 mb-6">Upload previous diagnostics, past medical history, and external lab results for registered patients to assist with ER triage and treatment decisions.</p>
 
+            <form onSubmit={handleExternalLabReportUpload} className="mb-8 rounded-xl border border-blue-100 bg-blue-50/50 p-5">
+              <h3 className="text-base font-semibold text-gray-900">Upload previous lab result</h3>
+              <p className="mt-1 text-sm text-gray-600">Attach a PDF or image to a patient&apos;s lab history. Accepted formats: PDF, JPEG, PNG, and WebP. Maximum file size: 15 MB.</p>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="externalLabPatient" className="block text-sm font-medium text-gray-900">Patient <span className="text-red-600">*</span></label>
+                  <select id="externalLabPatient" required value={externalLabReport.patientId} onChange={(e) => setExternalLabReport({ ...externalLabReport, patientId: e.target.value })} className="mt-1 block w-full rounded-md border-0 bg-white py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                    {patients.length === 0 ? <option value="">No registered patients available</option> : patients.map((patient: Patient) => <option key={patient.id} value={patient.id}>{patient.firstName} {patient.lastName} · #{patient.id}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="externalLabTestName" className="block text-sm font-medium text-gray-900">Test name <span className="text-red-600">*</span></label>
+                  <input id="externalLabTestName" required maxLength={244} value={externalLabReport.testName} onChange={(e) => setExternalLabReport({ ...externalLabReport, testName: e.target.value })} className="mt-1 block w-full rounded-md border-0 bg-white py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" placeholder="e.g. Complete Blood Count" />
+                </div>
+                <div>
+                  <label htmlFor="externalLabReportDate" className="block text-sm font-medium text-gray-900">Report date <span className="text-gray-500">Optional</span></label>
+                  <input id="externalLabReportDate" type="date" value={externalLabReport.reportDate} onChange={(e) => setExternalLabReport({ ...externalLabReport, reportDate: e.target.value })} className="mt-1 block w-full rounded-md border-0 bg-white py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="externalLabReportFile" className="block text-sm font-medium text-gray-900">Report file <span className="text-red-600">*</span></label>
+                  <input id="externalLabReportFile" ref={externalLabFileInputRef} required type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" className="mt-1 block w-full rounded-md border border-gray-300 bg-white text-sm text-gray-700 file:mr-3 file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:font-medium" />
+                </div>
+                <div className="sm:col-span-2">
+                  <label htmlFor="externalLabReportNotes" className="block text-sm font-medium text-gray-900">Notes <span className="text-gray-500">Optional</span></label>
+                  <textarea id="externalLabReportNotes" rows={2} maxLength={5000} value={externalLabReport.notes} onChange={(e) => setExternalLabReport({ ...externalLabReport, notes: e.target.value })} className="mt-1 block w-full rounded-md border-0 bg-white py-2 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm" placeholder="Source facility or context for this report." />
+                </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <button type="submit" disabled={isUploadingLabReport || patients.length === 0} className="inline-flex items-center rounded-md bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50">
+                  <Upload className="mr-2 h-4 w-4" /> {isUploadingLabReport ? 'Uploading report…' : 'Upload lab report'}
+                </button>
+              </div>
+            </form>
+
+            <h3 className="text-base font-semibold text-gray-900">Bulk import with CSV</h3>
+            <p className="mb-4 mt-1 text-sm text-gray-600">Continue to use the CSV option for structured external records.</p>
             <div className="flex flex-wrap gap-4">
               <button onClick={downloadExternalTemplate} className="flex items-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
                 <FileSpreadsheet className="h-4 w-4 mr-2" /> Download CSV Template

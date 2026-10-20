@@ -1,11 +1,38 @@
 'use server';
 
 import { db } from '@/db';
-import { medicalRecords, labResults } from '@/db/schema';
+import { medicalRecords, labResults, patients } from '@/db/schema';
 import { revalidatePath } from 'next/cache';
 
 import { prescriptions, imagingResults } from '@/db/schema';
 import { requireUser } from '@/lib/auth';
+import { eq, sql } from 'drizzle-orm';
+import { logAuditTrail } from '@/lib/audit';
+
+export async function deletePatientAction(patientId: number): Promise<{ success: boolean; message: string }> {
+  const actor = await requireUser(['super_admin', 'admin']);
+  if (!Number.isSafeInteger(patientId) || patientId <= 0) return { success: false, message: 'Patient record ID is invalid.' };
+  const patient = await db.query.patients.findFirst({ where: eq(patients.id, patientId) });
+  if (!patient) return { success: false, message: 'Patient record not found.' };
+  const references = await db.execute<{ references: number }>(sql`SELECT
+    (SELECT count(*) FROM appointments WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM medical_records WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM vitals WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM patient_triage WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM emergency_triage WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM lab_results WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM imaging_results WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM prescriptions WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM invoices WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM record_audits WHERE patient_id = ${patientId}) AS reference_count`);
+  if (patient.userId || Number(references.rows[0]?.reference_count) > 0) {
+    return { success: false, message: 'This patient has a linked account or clinical history and cannot be deleted.' };
+  }
+  await logAuditTrail(actor.id, 'Deleted Patient', 'Patients', `Deleted patient ${patient.firstName} ${patient.lastName} (ID ${patientId})`);
+  await db.delete(patients).where(eq(patients.id, patientId));
+  revalidatePath('/patients');
+  return { success: true, message: 'Patient record deleted.' };
+}
 
 export async function submitClinicalReviewAction(data: {
   patientId: number;

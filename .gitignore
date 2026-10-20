@@ -5,6 +5,7 @@ build/
 dist/
 coverage/
 *.tsbuildinfo
+private-uploads/
 .env
 .env.*
 !.env.example
