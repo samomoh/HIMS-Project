@@ -8,9 +8,11 @@ import {
   boolean,
   decimal,
   date,
+  index,
+  uniqueIndex,
   customType,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
@@ -36,6 +38,21 @@ export const staffPhotos = pgTable('staff_photos', {
   photoMimeType: varchar('photo_mime_type', { length: 32 }).notNull(),
   uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
 });
+
+export const staffShifts = pgTable('staff_shifts', {
+  id: serial('id').primaryKey(),
+  staffId: integer('staff_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  shiftType: varchar('shift_type', { length: 20 }).notNull(),
+  startsAt: timestamp('starts_at').notNull(),
+  endsAt: timestamp('ends_at').notNull(),
+  rotationId: varchar('rotation_id', { length: 36 }),
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('staff_shifts_staff_start_idx').on(table.staffId, table.startsAt),
+  index('staff_shifts_period_idx').on(table.startsAt, table.endsAt),
+]);
 
 export const recordAudits = pgTable('record_audits', {
   id: serial('id').primaryKey(),
@@ -233,6 +250,69 @@ export const invoices = pgTable('invoices', {
   dueDate: timestamp('due_date').notNull(),
   paidAt: timestamp('paid_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const wards = pgTable('wards', {
+  id: serial('id').primaryKey(),
+  name: varchar('name', { length: 120 }).notNull().unique(),
+  specialty: varchar('specialty', { length: 120 }),
+  location: varchar('location', { length: 120 }),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const wardBeds = pgTable('ward_beds', {
+  id: serial('id').primaryKey(),
+  wardId: integer('ward_id').references(() => wards.id, { onDelete: 'cascade' }).notNull(),
+  bedNumber: varchar('bed_number', { length: 30 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('Available'),
+}, (table) => [
+  uniqueIndex('ward_beds_ward_number_idx').on(table.wardId, table.bedNumber),
+]);
+
+export const wardAdmissions = pgTable('ward_admissions', {
+  id: serial('id').primaryKey(),
+  admissionNumber: varchar('admission_number', { length: 40 }).notNull().unique(),
+  patientId: integer('patient_id').references(() => patients.id).notNull(),
+  source: varchar('source', { length: 60 }).notNull(),
+  sourceDetails: text('source_details'),
+  diagnosis: text('diagnosis').notNull(),
+  attendingDoctorId: integer('attending_doctor_id').references(() => users.id),
+  wardId: integer('ward_id').references(() => wards.id).notNull(),
+  bedId: integer('bed_id').references(() => wardBeds.id),
+  status: varchar('status', { length: 20 }).notNull().default('Admitted'),
+  admittedAt: timestamp('admitted_at').defaultNow().notNull(),
+  admittedBy: integer('admitted_by').references(() => users.id),
+  dischargedAt: timestamp('discharged_at'),
+  dischargeSummary: text('discharge_summary'),
+  finalInvoiceId: integer('final_invoice_id').references(() => invoices.id),
+}, (table) => [
+  index('ward_admissions_patient_idx').on(table.patientId, table.status),
+  index('ward_admissions_ward_idx').on(table.wardId, table.status),
+  uniqueIndex('ward_admissions_one_active_patient_idx').on(table.patientId).where(sql`${table.status} = 'Admitted'`),
+  uniqueIndex('ward_admissions_one_active_bed_idx').on(table.bedId).where(sql`${table.status} = 'Admitted' AND ${table.bedId} IS NOT NULL`),
+  uniqueIndex('ward_admissions_final_invoice_idx').on(table.finalInvoiceId).where(sql`${table.finalInvoiceId} IS NOT NULL`),
+]);
+
+export const wardCareEntries = pgTable('ward_care_entries', {
+  id: serial('id').primaryKey(),
+  admissionId: integer('admission_id').references(() => wardAdmissions.id).notNull(),
+  authorId: integer('author_id').references(() => users.id),
+  entryType: varchar('entry_type', { length: 30 }).notNull(),
+  note: text('note').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [index('ward_care_admission_time_idx').on(table.admissionId, table.createdAt)]);
+
+export const wardTransfers = pgTable('ward_transfers', {
+  id: serial('id').primaryKey(),
+  admissionId: integer('admission_id').references(() => wardAdmissions.id).notNull(),
+  fromWardId: integer('from_ward_id').references(() => wards.id),
+  fromBedId: integer('from_bed_id').references(() => wardBeds.id),
+  toWardId: integer('to_ward_id').references(() => wards.id).notNull(),
+  toBedId: integer('to_bed_id').references(() => wardBeds.id),
+  reason: text('reason').notNull(),
+  transferredBy: integer('transferred_by').references(() => users.id),
+  transferredAt: timestamp('transferred_at').defaultNow().notNull(),
 });
 
 // Relations

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Role, SESSION_COOKIE, verifySession } from '@/lib/session-token';
 
 const permissions: Array<[string, Role[]]> = [
+  ['/wards', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'pharmacist', 'laboratory', 'radiology', 'medical_records']],
+  ['/shifts', ['super_admin', 'admin', 'hr', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support']],
   ['/staff', ['super_admin', 'admin', 'hr']],
   ['/physician', ['super_admin', 'admin', 'doctor']],
   ['/specialist', ['super_admin', 'admin', 'specialist']],

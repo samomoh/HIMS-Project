@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Activity, Calendar, Users, FileText, Settings, Menu, X, HeartPulse, Pill,
+  Activity, Calendar, CalendarClock, BedDouble, Users, FileText, Settings, Menu, X, HeartPulse, Pill,
   CreditCard, Bot, UserCog, FlaskConical, Radiation, ClipboardList,
   Stethoscope, Microscope, Siren, FolderArchive, Landmark, Eye, ServerCog,
   Badge, Search, Bell, LayoutDashboard, ShieldCheck, LogOut,
@@ -21,6 +21,7 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
 const navigation = [
   { name: 'Overview', href: '/', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support', 'hr'] },
   { name: 'Patients', href: '/patients', icon: Users, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'medical_records'] },
+  { name: 'Wards & admissions', href: '/wards', icon: BedDouble, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'pharmacist', 'laboratory', 'radiology', 'medical_records'] },
   { name: 'Appointments', href: '/appointments', icon: Calendar, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'receptionist'] },
   { name: 'Emergency unit', href: '/emergency', icon: Siren, roles: ['super_admin', 'admin', 'emergency', 'doctor', 'nurse'] },
   { name: 'Physician desk', href: '/physician', icon: Stethoscope, roles: ['super_admin', 'admin', 'doctor'] },
@@ -35,6 +36,7 @@ const navigation = [
   { name: 'Health authorities', href: '/authorities', icon: Landmark, roles: ['super_admin', 'admin', 'health_authority'] },
   { name: 'AI assistant', href: '/ai-assistant', icon: Bot, roles: ['super_admin', 'doctor', 'specialist', 'nurse', 'emergency'] },
   { name: 'Staff', href: '/staff', icon: UserCog, roles: ['super_admin', 'admin', 'hr'] },
+  { name: 'Shift management', href: '/shifts', icon: CalendarClock, roles: ['super_admin', 'admin', 'hr', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support'] },
   { name: 'ID cards', href: '/id-cards', icon: Badge, roles: ['super_admin', 'admin'] },
   { name: 'ICT support', href: '/ict-support', icon: ServerCog, roles: ['super_admin', 'admin', 'ict_support'] },
   { name: 'Audit trail', href: '/audit-trail', icon: Eye, roles: ['super_admin', 'admin', 'health_authority', 'ict_support'] },
@@ -53,7 +55,7 @@ const roleLabels: Record<string, string> = {
 function Sidebar({ onNavigate, mobile = false, role }: { onNavigate?: () => void; mobile?: boolean; role: Role }) {
   const pathname = usePathname();
   const visibleNavigation = navigation.filter((item) => item.roles.includes(role));
-  const careLinks = visibleNavigation.filter((item) => ['/','/patients','/appointments','/emergency','/physician','/specialist','/nursing'].includes(item.href));
+  const careLinks = visibleNavigation.filter((item) => ['/','/patients','/wards','/appointments','/emergency','/physician','/specialist','/nursing'].includes(item.href));
   const serviceLinks = visibleNavigation.filter((item) => ['/laboratory','/radiology','/pharmacy','/records','/billing'].includes(item.href));
   const adminLinks = visibleNavigation.filter((item) => !careLinks.includes(item) && !serviceLinks.includes(item));
 

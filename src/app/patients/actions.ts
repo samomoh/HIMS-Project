@@ -24,6 +24,7 @@ export async function deletePatientAction(patientId: number): Promise<{ success:
     (SELECT count(*) FROM imaging_results WHERE patient_id = ${patientId}) +
     (SELECT count(*) FROM prescriptions WHERE patient_id = ${patientId}) +
     (SELECT count(*) FROM invoices WHERE patient_id = ${patientId}) +
+    (SELECT count(*) FROM ward_admissions WHERE patient_id = ${patientId}) +
     (SELECT count(*) FROM record_audits WHERE patient_id = ${patientId}) AS reference_count`);
   if (patient.userId || Number(references.rows[0]?.reference_count) > 0) {
     return { success: false, message: 'This patient has a linked account or clinical history and cannot be deleted.' };

@@ -92,6 +92,9 @@ export async function deleteStaffAction(id: number) {
     (SELECT count(*) FROM medication_administrations WHERE nurse_id = ${id}) +
     (SELECT count(*) FROM record_audits WHERE officer_id = ${id}) +
     (SELECT count(*) FROM invoices WHERE issued_by = ${id}) +
+    (SELECT count(*) FROM ward_admissions WHERE attending_doctor_id = ${id} OR admitted_by = ${id}) +
+    (SELECT count(*) FROM ward_care_entries WHERE author_id = ${id}) +
+    (SELECT count(*) FROM ward_transfers WHERE transferred_by = ${id}) +
     (SELECT count(*) FROM patients WHERE user_id = ${id}) AS reference_count`);
   if (Number(references.rows[0]?.reference_count) > 0) {
     throw new Error('This staff account has linked clinical or support history and cannot be deleted.');
