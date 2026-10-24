@@ -19,7 +19,6 @@ function detectPhotoType(bytes: Buffer): { mimeType: string } | null {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await currentUser();
   if (!actor) return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  if (actor.role === 'patient') return NextResponse.json({ error: 'Staff access required.' }, { status: 403 });
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!Number.isSafeInteger(id) || id <= 0) return NextResponse.json({ error: 'Staff record not found.' }, { status: 404 });

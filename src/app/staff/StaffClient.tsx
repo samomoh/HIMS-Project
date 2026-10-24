@@ -34,28 +34,34 @@ export default function StaffClient({ initialStaff, actorRole, actorId }: { init
   const [formData, setFormData] = useState({ name: '', email: '', role: 'doctor', department: '', contactNumber: '', hireDate: '', licenseNumber: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!photoFile) {
-      setPhotoPreview('');
-      return;
-    }
-    const previewUrl = URL.createObjectURL(photoFile);
-    setPhotoPreview(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [photoFile]);
+  const photoPreviewRef = useRef('');
+  const clearPhotoSelection = () => {
+    if (photoPreviewRef.current) URL.revokeObjectURL(photoPreviewRef.current);
+    photoPreviewRef.current = '';
+    setPhotoPreview('');
+    setPhotoFile(null);
+  };
+  const selectPhoto = (file: File | null) => {
+    if (photoPreviewRef.current) URL.revokeObjectURL(photoPreviewRef.current);
+    photoPreviewRef.current = file ? URL.createObjectURL(file) : '';
+    setPhotoPreview(photoPreviewRef.current);
+    setPhotoFile(file);
+  };
+  useEffect(() => () => {
+    if (photoPreviewRef.current) URL.revokeObjectURL(photoPreviewRef.current);
+  }, []);
 
   const openAddModal = () => {
     setEditingStaff(null);
     setFormData({ name: '', email: '', role: 'doctor', department: '', contactNumber: '', hireDate: '', licenseNumber: '' });
-    setPhotoFile(null);
+    clearPhotoSelection();
     setIsModalOpen(true);
   };
 
   const openEditModal = (s: Staff) => {
     setEditingStaff(s);
     setFormData({ name: s.name, email: s.email, role: s.role, department: s.department || '', contactNumber: s.contactNumber || '', hireDate: s.hireDate || '', licenseNumber: s.licenseNumber || '' });
-    setPhotoFile(null);
+    clearPhotoSelection();
     setIsModalOpen(true);
   };
 
@@ -81,7 +87,7 @@ export default function StaffClient({ initialStaff, actorRole, actorId }: { init
         const photoMimeType = photoFile ? await uploadStaffPhoto(editingStaff.id, photoFile) : editingStaff.photoMimeType;
         setStaff(staff.map(s => s.id === editingStaff.id ? { ...s, ...formData, photoMimeType: photoMimeType || null } : s));
         setToast({ message: photoFile ? 'Staff record and photo updated.' : 'Staff record updated.', tone: 'success' });
-        setPhotoFile(null);
+        clearPhotoSelection();
         closeModal();
       } else {
         setConfirmation({ kind: 'create' });
@@ -103,7 +109,7 @@ export default function StaffClient({ initialStaff, actorRole, actorId }: { init
         setStaff((current) => [{ ...created, role: String(created.role) }, ...current]);
         setConfirmation(null);
         closeModal();
-        setPhotoFile(null);
+        clearPhotoSelection();
         if (photoFile) {
           try {
             const photoMimeType = await uploadStaffPhoto(created.id, photoFile);
@@ -340,12 +346,12 @@ export default function StaffClient({ initialStaff, actorRole, actorId }: { init
                 <input id="staffPhoto" type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   if (file && (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
-                    setPhotoFile(null);
+                    clearPhotoSelection();
                     setToast({ message: 'Choose a JPEG, PNG, or WebP photo no larger than 5 MB.', tone: 'error' });
                     e.currentTarget.value = '';
                     return;
                   }
-                  setPhotoFile(file);
+                  selectPhoto(file);
                 }} className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100" />
                 <p className="mt-1 text-xs text-gray-500">JPEG, PNG, or WebP · up to 5 MB</p>
                 {photoPreview && <img src={photoPreview} alt="Selected staff photo preview" className="mt-3 h-20 w-20 rounded-full object-cover ring-2 ring-gray-200" />}

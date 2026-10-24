@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { CalendarClock, RotateCw, Trash2, Users } from 'lucide-react';
 import { createShiftScheduleAction, deleteShiftAction } from './actions';
 
@@ -17,14 +17,12 @@ function formatWhen(value: Date | string) {
   return new Date(value).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
-export default function ShiftsClient({ staff, shifts, canManage }: { staff: StaffOption[]; shifts: ShiftRow[]; canManage: boolean }) {
+export default function ShiftsClient({ staff, shifts, canManage, asOf }: { staff: StaffOption[]; shifts: ShiftRow[]; canManage: boolean; asOf: Date | string }) {
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const [pending, startTransition] = useTransition();
   const [repeat, setRepeat] = useState('none');
-  const onDuty = useMemo(() => {
-    const now = Date.now();
-    return shifts.filter((shift) => new Date(shift.startsAt).getTime() <= now && new Date(shift.endsAt).getTime() > now);
-  }, [shifts]);
+  const now = new Date(asOf).getTime();
+  const onDuty = shifts.filter((shift) => new Date(shift.startsAt).getTime() <= now && new Date(shift.endsAt).getTime() > now);
 
   const save = (formData: FormData) => {
     const staffId = Number(formData.get('staffId'));

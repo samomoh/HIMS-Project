@@ -32,5 +32,5 @@ export default async function ShiftsPage() {
       .where(and(gte(staffShifts.endsAt, from), lt(staffShifts.startsAt, through)))
       .orderBy(asc(staffShifts.startsAt)),
   ]);
-  return <ShiftsClient staff={staff} shifts={shifts} canManage={canManage} />;
+  return <ShiftsClient staff={staff} shifts={shifts} canManage={canManage} asOf={now} />;
 }

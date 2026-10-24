@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { db } from '@/db';
 import { emergencyTriage, invoices, medicationAdministrations, patients, prescriptions, users, vitals, wardAdmissions, wardBeds, wardCareEntries, wards, wardTransfers } from '@/db/schema';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { logAuditTrail } from '@/lib/audit';
 import { requireUser } from '@/lib/auth';
@@ -19,11 +19,15 @@ async function safeAudit(userId: number, action: string, details: string) {
 
 export async function createWardAction(data: { name: string; specialty?: string; location?: string; bedCount: number }) {
   const actor = await requireUser(['super_admin', 'admin']);
-  const name = data?.name?.trim();
-  const specialty = data?.specialty?.trim() || null;
-  const location = data?.location?.trim() || null;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Enter valid ward details.');
+  const name = typeof data?.name === 'string' ? data.name.trim() : '';
+  if ((data.specialty != null && typeof data.specialty !== 'string') || (data.location != null && typeof data.location !== 'string')) throw new Error('Enter valid ward details.');
+  const specialty = typeof data.specialty === 'string' ? data.specialty.trim() || null : null;
+  const location = typeof data.location === 'string' ? data.location.trim() || null : null;
   if (!name || name.length > 120 || (specialty && specialty.length > 120) || (location && location.length > 120)) throw new Error('Enter a valid ward name, specialty, and location.');
   if (!Number.isSafeInteger(data.bedCount) || data.bedCount < 1 || data.bedCount > 200) throw new Error('A ward must have between 1 and 200 beds.');
+  const [duplicate] = await db.select({ id: wards.id }).from(wards).where(sql`lower(${wards.name}) = lower(${name})`).limit(1);
+  if (duplicate) throw new Error('A ward with this name already exists. Choose a different name.');
   const ward = await db.transaction(async (tx) => {
     const [created] = await tx.insert(wards).values({ name, specialty, location }).returning({ id: wards.id });
     await tx.insert(wardBeds).values(Array.from({ length: data.bedCount }, (_, index) => ({ wardId: created.id, bedNumber: `B-${String(index + 1).padStart(2, '0')}` })));
@@ -36,14 +40,19 @@ export async function createWardAction(data: { name: string; specialty?: string;
 
 export async function addBedsAction(data: { wardId: number; bedCount: number }) {
   const actor = await requireUser(['super_admin', 'admin']);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Enter valid bed details.');
   if (!isId(data.wardId) || !Number.isSafeInteger(data.bedCount) || data.bedCount < 1 || data.bedCount > 100) throw new Error('Add between 1 and 100 beds at a time.');
-  const [ward] = await db.select({ id: wards.id, name: wards.name }).from(wards).where(and(eq(wards.id, data.wardId), eq(wards.active, true))).limit(1);
-  if (!ward) throw new Error('Ward not found or inactive.');
-  const existing = await db.select({ bedNumber: wardBeds.bedNumber }).from(wardBeds).where(eq(wardBeds.wardId, ward.id));
-  const next = existing.reduce((max, bed) => Math.max(max, Number(bed.bedNumber.replace(/^B-/, '')) || 0), 0) + 1;
-  if (next + data.bedCount - 1 > 999) throw new Error('Ward bed labels are limited to B-999.');
-  await db.insert(wardBeds).values(Array.from({ length: data.bedCount }, (_, index) => ({ wardId: ward.id, bedNumber: `B-${String(next + index).padStart(2, '0')}` })));
-  await safeAudit(actor.id, 'Added Ward Beds', `Added ${data.bedCount} beds to ward ${ward.name}.`);
+  const wardName = await db.transaction(async (tx) => {
+    const [ward] = await tx.select({ id: wards.id, name: wards.name }).from(wards)
+      .where(and(eq(wards.id, data.wardId), eq(wards.active, true))).limit(1).for('update');
+    if (!ward) throw new Error('Ward not found or inactive.');
+    const existing = await tx.select({ bedNumber: wardBeds.bedNumber }).from(wardBeds).where(eq(wardBeds.wardId, ward.id));
+    const next = existing.reduce((max, bed) => Math.max(max, Number(bed.bedNumber.replace(/^B-/, '')) || 0), 0) + 1;
+    if (next + data.bedCount - 1 > 999) throw new Error('Ward bed labels are limited to B-999.');
+    await tx.insert(wardBeds).values(Array.from({ length: data.bedCount }, (_, index) => ({ wardId: ward.id, bedNumber: `B-${String(next + index).padStart(2, '0')}` })));
+    return ward.name;
+  });
+  await safeAudit(actor.id, 'Added Ward Beds', `Added ${data.bedCount} beds to ward ${wardName}.`);
   revalidatePath(WARD_PATH);
 }
 
@@ -54,10 +63,12 @@ type AdmissionInput = {
 
 export async function createAdmissionAction(data: AdmissionInput) {
   const actor = await requireUser(['super_admin', 'admin', 'doctor', 'specialist', 'emergency', 'receptionist']);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Enter valid admission details.');
   if (!data || !isId(data.patientId) || !isId(data.wardId) || (data.bedId != null && !isId(data.bedId))) throw new Error('Choose a patient, ward, and valid bed.');
   if (!SOURCE_OPTIONS.includes(data.source)) throw new Error('Choose a valid admission source.');
-  const diagnosis = data.diagnosis?.trim();
-  const sourceDetails = data.sourceDetails?.trim() || null;
+  const diagnosis = typeof data.diagnosis === 'string' ? data.diagnosis.trim() : '';
+  if (data.sourceDetails != null && typeof data.sourceDetails !== 'string') throw new Error('Enter valid admission details.');
+  const sourceDetails = typeof data.sourceDetails === 'string' ? data.sourceDetails.trim() || null : null;
   if (!diagnosis || diagnosis.length > 2000 || (sourceDetails && sourceDetails.length > 1000)) throw new Error('Enter a diagnosis and keep admission details within the allowed length.');
   if (data.source === 'Another Ward or Facility' && !sourceDetails) throw new Error('Enter the transferring ward or referring facility.');
   const attendingDoctorId = data.attendingDoctorId || (['doctor', 'specialist'].includes(actor.role) ? actor.id : null);
@@ -66,6 +77,8 @@ export async function createAdmissionAction(data: AdmissionInput) {
   const admissionNumber = `ADM-${new Date().toISOString().slice(0, 10).replaceAll('-', '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
   let patientName = '';
   await db.transaction(async (tx) => {
+    const [ward] = await tx.select({ id: wards.id }).from(wards).where(and(eq(wards.id, data.wardId), eq(wards.active, true))).limit(1);
+    if (!ward) throw new Error('Choose an active ward.');
     const [patient] = await tx.select({ id: patients.id, firstName: patients.firstName, lastName: patients.lastName }).from(patients).where(eq(patients.id, data.patientId)).limit(1);
     if (!patient) throw new Error('Patient record was not found.');
     patientName = `${patient.firstName} ${patient.lastName}`;
@@ -75,15 +88,14 @@ export async function createAdmissionAction(data: AdmissionInput) {
     const [clinician] = await tx.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, attendingDoctorId)).limit(1);
     if (!clinician || !['doctor', 'specialist'].includes(clinician.role)) throw new Error('Choose a valid attending doctor or specialist.');
     if (data.bedId) {
-      const [bed] = await tx.select({ id: wardBeds.id, status: wardBeds.status }).from(wardBeds).where(and(eq(wardBeds.id, data.bedId), eq(wardBeds.wardId, data.wardId))).limit(1);
-      if (!bed || bed.status !== 'Available') throw new Error('That bed is not available in the selected ward.');
+      const [bed] = await tx.update(wardBeds).set({ status: 'Occupied' }).where(and(eq(wardBeds.id, data.bedId), eq(wardBeds.wardId, data.wardId), eq(wardBeds.status, 'Available'))).returning({ id: wardBeds.id });
+      if (!bed) throw new Error('That bed is not available in the selected ward.');
     }
     const [admission] = await tx.insert(wardAdmissions).values({
       admissionNumber, patientId: data.patientId, source: data.source, sourceDetails,
       diagnosis, attendingDoctorId, wardId: data.wardId, bedId: data.bedId || null,
       admittedBy: actor.id,
     }).returning({ id: wardAdmissions.id });
-    if (data.bedId) await tx.update(wardBeds).set({ status: 'Occupied' }).where(eq(wardBeds.id, data.bedId));
     if (data.source === 'Observation / Emergency Department') {
       await tx.update(emergencyTriage).set({ status: 'Admitted' }).where(and(eq(emergencyTriage.patientId, data.patientId), eq(emergencyTriage.status, 'Active')));
     }
@@ -113,15 +125,17 @@ export async function addWardCareEntryAction(data: { admissionId: number; entryT
 }
 
 export async function allocateAdmissionBedAction(data: { admissionId: number; bedId: number }) {
-  const actor = await requireUser(['super_admin', 'admin', 'nurse']);
+  const actor = await requireUser(['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'emergency', 'receptionist']);
   if (!isId(data.admissionId) || !isId(data.bedId)) throw new Error('Choose an active admission and available bed.');
   await db.transaction(async (tx) => {
     const [admission] = await tx.select({ id: wardAdmissions.id, patientId: wardAdmissions.patientId, status: wardAdmissions.status, bedId: wardAdmissions.bedId }).from(wardAdmissions).where(eq(wardAdmissions.id, data.admissionId)).limit(1);
     if (!admission || admission.status !== 'Admitted' || admission.bedId) throw new Error('This admission already has a bed or is no longer active.');
-    const [bed] = await tx.select({ id: wardBeds.id, wardId: wardBeds.wardId, bedNumber: wardBeds.bedNumber, status: wardBeds.status }).from(wardBeds).where(eq(wardBeds.id, data.bedId)).limit(1);
-    if (!bed || bed.status !== 'Available') throw new Error('That bed is no longer available.');
-    await tx.update(wardAdmissions).set({ wardId: bed.wardId, bedId: bed.id }).where(eq(wardAdmissions.id, admission.id));
-    await tx.update(wardBeds).set({ status: 'Occupied' }).where(eq(wardBeds.id, bed.id));
+    const [bed] = await tx.update(wardBeds).set({ status: 'Occupied' }).where(and(eq(wardBeds.id, data.bedId), eq(wardBeds.status, 'Available'))).returning({ id: wardBeds.id, wardId: wardBeds.wardId, bedNumber: wardBeds.bedNumber });
+    if (!bed) throw new Error('That bed is no longer available.');
+    const [allocated] = await tx.update(wardAdmissions).set({ wardId: bed.wardId, bedId: bed.id })
+      .where(and(eq(wardAdmissions.id, admission.id), eq(wardAdmissions.status, 'Admitted'), isNull(wardAdmissions.bedId)))
+      .returning({ id: wardAdmissions.id });
+    if (!allocated) throw new Error('This admission was updated before the bed could be allocated. Refresh and try again.');
     await tx.insert(wardCareEntries).values({ admissionId: admission.id, authorId: actor.id, entryType: 'Bed Allocation', note: `Allocated bed ${bed.bedNumber} in ward ${bed.wardId}.` });
   });
   await safeAudit(actor.id, 'Allocated Inpatient Bed', `Allocated bed ${data.bedId} to inpatient admission ${data.admissionId}.`);
@@ -174,13 +188,20 @@ export async function transferAdmissionAction(data: { admissionId: number; wardI
   await db.transaction(async (tx) => {
     const [admission] = await tx.select({ id: wardAdmissions.id, patientId: wardAdmissions.patientId, wardId: wardAdmissions.wardId, bedId: wardAdmissions.bedId, status: wardAdmissions.status }).from(wardAdmissions).where(eq(wardAdmissions.id, data.admissionId)).limit(1);
     if (!admission || admission.status !== 'Admitted') throw new Error('Only active admissions can be transferred.');
-    const [bed] = await tx.select({ id: wardBeds.id, wardId: wardBeds.wardId, status: wardBeds.status }).from(wardBeds).where(eq(wardBeds.id, data.bedId)).limit(1);
-    if (!bed || bed.wardId !== data.wardId || bed.status !== 'Available') throw new Error('That destination bed is not available.');
+    const [bed] = await tx.update(wardBeds).set({ status: 'Occupied' }).where(and(eq(wardBeds.id, data.bedId), eq(wardBeds.wardId, data.wardId), eq(wardBeds.status, 'Available'))).returning({ id: wardBeds.id, wardId: wardBeds.wardId });
+    if (!bed) throw new Error('That destination bed is not available.');
     await tx.insert(wardTransfers).values({ admissionId: admission.id, fromWardId: admission.wardId, fromBedId: admission.bedId, toWardId: data.wardId, toBedId: data.bedId, reason, transferredBy: actor.id });
     await tx.insert(wardCareEntries).values({ admissionId: admission.id, authorId: actor.id, entryType: 'Transfer History', note: `Transferred to ward ${data.wardId}, bed ${data.bedId}. Reason: ${reason}` });
-    await tx.update(wardAdmissions).set({ wardId: data.wardId, bedId: data.bedId }).where(eq(wardAdmissions.id, admission.id));
-    if (admission.bedId) await tx.update(wardBeds).set({ status: 'Cleaning' }).where(eq(wardBeds.id, admission.bedId));
-    await tx.update(wardBeds).set({ status: 'Occupied' }).where(eq(wardBeds.id, data.bedId));
+    const admissionGuard = admission.bedId == null ? isNull(wardAdmissions.bedId) : eq(wardAdmissions.bedId, admission.bedId);
+    const [transferred] = await tx.update(wardAdmissions).set({ wardId: data.wardId, bedId: data.bedId })
+      .where(and(eq(wardAdmissions.id, admission.id), eq(wardAdmissions.status, 'Admitted'), admissionGuard))
+      .returning({ id: wardAdmissions.id });
+    if (!transferred) throw new Error('This admission was updated before the transfer could be completed. Refresh and try again.');
+    if (admission.bedId) {
+      const [oldBed] = await tx.update(wardBeds).set({ status: 'Cleaning' })
+        .where(and(eq(wardBeds.id, admission.bedId), eq(wardBeds.status, 'Occupied'))).returning({ id: wardBeds.id });
+      if (!oldBed) throw new Error('The current bed status changed. Refresh and try again.');
+    }
   });
   await safeAudit(actor.id, 'Transferred Inpatient', `Transferred inpatient admission ${data.admissionId} to ward ${data.wardId}, bed ${data.bedId}.`);
   revalidatePath(WARD_PATH);
@@ -199,8 +220,15 @@ export async function dischargeAdmissionAction(data: { admissionId: number; summ
     patientId = admission.patientId;
     admissionNumber = admission.admissionNumber;
     const now = new Date();
-    await tx.update(wardAdmissions).set({ status: 'Discharged', dischargedAt: now, dischargeSummary: summary }).where(eq(wardAdmissions.id, admission.id));
-    if (admission.bedId) await tx.update(wardBeds).set({ status: 'Cleaning' }).where(eq(wardBeds.id, admission.bedId));
+    const bedGuard = admission.bedId == null ? isNull(wardAdmissions.bedId) : eq(wardAdmissions.bedId, admission.bedId);
+    const [discharged] = await tx.update(wardAdmissions).set({ status: 'Discharged', dischargedAt: now, dischargeSummary: summary })
+      .where(and(eq(wardAdmissions.id, admission.id), eq(wardAdmissions.status, 'Admitted'), bedGuard)).returning({ id: wardAdmissions.id });
+    if (!discharged) throw new Error('This admission changed before it could be discharged. Refresh and try again.');
+    if (admission.bedId) {
+      const [bed] = await tx.update(wardBeds).set({ status: 'Cleaning' })
+        .where(and(eq(wardBeds.id, admission.bedId), eq(wardBeds.status, 'Occupied'))).returning({ id: wardBeds.id });
+      if (!bed) throw new Error('The current bed status changed. Refresh and try again.');
+    }
     await tx.update(emergencyTriage).set({ status: 'Discharged', dischargedTime: now }).where(and(eq(emergencyTriage.patientId, admission.patientId), eq(emergencyTriage.status, 'Admitted')));
   });
   await safeAudit(actor.id, 'Discharged Inpatient', `Clinically discharged admission ${admissionNumber}; final billing is pending.`);

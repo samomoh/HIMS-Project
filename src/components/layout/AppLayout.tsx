@@ -7,12 +7,16 @@ import {
   Activity, Calendar, CalendarClock, BedDouble, Users, FileText, Settings, Menu, X, HeartPulse, Pill,
   CreditCard, Bot, UserCog, FlaskConical, Radiation, ClipboardList,
   Stethoscope, Microscope, Siren, FolderArchive, Landmark, Eye, ServerCog,
-  Badge, Search, Bell, LayoutDashboard, ShieldCheck, LogOut,
+  Badge, Search, Bell, LayoutDashboard, ShieldCheck, LogOut, Workflow,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { Role } from '@/lib/session-token';
 import { signOutAction } from '@/app/auth/login/actions';
+import type { CustomMenuItem } from '@/lib/custom-navigation';
+
+const menuIcons = { LayoutDashboard, Users, BedDouble, Calendar, Siren, Stethoscope, Microscope, ClipboardList, FlaskConical, Radiation, Pill, FolderArchive, CreditCard, FileText, Landmark, Bot, UserCog, CalendarClock, Badge, ServerCog, Eye, Settings } satisfies Record<CustomMenuItem['icon'], LucideIcon>;
 
 export function cn(...inputs: (string | undefined | null | false)[]) {
   return twMerge(clsx(inputs));
@@ -40,6 +44,8 @@ const navigation = [
   { name: 'ID cards', href: '/id-cards', icon: Badge, roles: ['super_admin', 'admin'] },
   { name: 'ICT support', href: '/ict-support', icon: ServerCog, roles: ['super_admin', 'admin', 'ict_support'] },
   { name: 'Audit trail', href: '/audit-trail', icon: Eye, roles: ['super_admin', 'admin', 'health_authority', 'ict_support'] },
+  { name: 'Menu manager', href: '/menu-management', icon: Settings, roles: ['super_admin', 'admin'] },
+  { name: 'Workflow Studio', href: '/workflow-studio', icon: Workflow, roles: ['super_admin'] },
   { name: 'Settings', href: '/settings', icon: Settings, roles: ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support'] },
 ];
 
@@ -52,12 +58,13 @@ const roleLabels: Record<string, string> = {
   hr: 'Human resources',
 };
 
-function Sidebar({ onNavigate, mobile = false, role }: { onNavigate?: () => void; mobile?: boolean; role: Role }) {
+function Sidebar({ onNavigate, mobile = false, role, customNavigation = [], workflows = [] }: { onNavigate?: () => void; mobile?: boolean; role: Role; customNavigation?: CustomMenuItem[]; workflows?: { id: string; name: string }[] }) {
   const pathname = usePathname();
   const visibleNavigation = navigation.filter((item) => item.roles.includes(role));
   const careLinks = visibleNavigation.filter((item) => ['/','/patients','/wards','/appointments','/emergency','/physician','/specialist','/nursing'].includes(item.href));
   const serviceLinks = visibleNavigation.filter((item) => ['/laboratory','/radiology','/pharmacy','/records','/billing'].includes(item.href));
   const adminLinks = visibleNavigation.filter((item) => !careLinks.includes(item) && !serviceLinks.includes(item));
+  const customLinks = customNavigation.filter((item) => item.roles.includes(role));
 
   const linkGroup = (label: string, links: typeof navigation) => links.length ? (
     <div className="mb-6" key={label}>
@@ -88,6 +95,16 @@ function Sidebar({ onNavigate, mobile = false, role }: { onNavigate?: () => void
         {linkGroup('Care', careLinks)}
         {linkGroup('Services', serviceLinks)}
         {linkGroup('Administration', adminLinks)}
+        {role === 'super_admin' && workflows.length > 0 && <div className="mb-6"><p className="sidebar-label">My workflows</p><nav className="space-y-1" aria-label="My workflows">{workflows.map((workflow) => {
+          const href = `/workflows/${workflow.id}`;
+          const active = pathname === href;
+          return <Link key={workflow.id} href={href} onClick={onNavigate} aria-current={active ? 'page' : undefined} className={cn('nav-link', active && 'nav-link-active')}><FileText size={18} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" /><span>{workflow.name}</span>{active && <span className="nav-active-dot" />}</Link>;
+        })}</nav></div>}
+        {customLinks.length > 0 && <div className="mb-6"><p className="sidebar-label">Custom links</p><nav className="space-y-1" aria-label="Custom links">{customLinks.map((item) => {
+          const Icon = menuIcons[item.icon];
+          const active = item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href);
+          return <Link key={item.id} href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} className={cn('nav-link', active && 'nav-link-active')}><Icon size={18} strokeWidth={active ? 2.2 : 1.8} aria-hidden="true" /><span>{item.name}</span>{active && <span className="nav-active-dot" />}</Link>;
+        })}</nav></div>}
       </div>
       <div className="sidebar-bottom">
         <div className="secure-note"><ShieldCheck size={16} /><span>Secure workspace</span><span className="secure-indicator" /></div>
@@ -98,21 +115,21 @@ function Sidebar({ onNavigate, mobile = false, role }: { onNavigate?: () => void
   );
 }
 
-export function AppLayout({ children, role }: { children: React.ReactNode; role: Role }) {
+export function AppLayout({ children, role, customNavigation = [], workflows = [] }: { children: React.ReactNode; role: Role; customNavigation?: CustomMenuItem[]; workflows?: { id: string; name: string }[] }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
   if (pathname?.startsWith('/auth/') || pathname === '/unauthorized') return <>{children}</>;
   const current = navigation.find((item) => item.href === '/' ? pathname === '/' : pathname?.startsWith(item.href));
-  const pageTitle = current?.name ?? 'HealthAI';
+  const pageTitle = current?.name ?? workflows.find((item) => pathname === `/workflows/${item.id}`)?.name ?? customNavigation.find((item) => item.href !== '/' && pathname?.startsWith(item.href) && item.roles.includes(role))?.name ?? 'HealthAI';
 
   return (
     <div className="app-frame">
       <div className={cn('mobile-scrim', sidebarOpen && 'mobile-scrim-visible')} onClick={() => setSidebarOpen(false)} aria-hidden="true" />
       <div className={cn('mobile-sidebar', sidebarOpen && 'mobile-sidebar-open')}>
         <button className="mobile-close" onClick={() => setSidebarOpen(false)} aria-label="Close navigation"><X size={20} /></button>
-        <Sidebar mobile role={role} onNavigate={() => setSidebarOpen(false)} />
+        <Sidebar mobile role={role} customNavigation={customNavigation} workflows={workflows} onNavigate={() => setSidebarOpen(false)} />
       </div>
-      <div className="desktop-sidebar"><Sidebar role={role} /></div>
+      <div className="desktop-sidebar"><Sidebar role={role} customNavigation={customNavigation} workflows={workflows} /></div>
       <div className="app-main">
         <header className="topbar">
           <div className="topbar-left">

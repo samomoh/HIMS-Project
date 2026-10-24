@@ -79,7 +79,7 @@ export async function deleteStaffAction(id: number) {
     throw new Error('Only a super administrator can delete admin accounts.');
   }
 
-  const references = await db.execute<{ references: number }>(sql`SELECT
+  const references = await db.execute<{ reference_count: number | string }>(sql`SELECT
     (SELECT count(*) FROM support_tickets WHERE user_id = ${id}) +
     (SELECT count(*) FROM appointments WHERE doctor_id = ${id}) +
     (SELECT count(*) FROM medical_records WHERE doctor_id = ${id}) +

@@ -2,7 +2,8 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { HeartPulse, LockKeyhole, Mail } from 'lucide-react';
+import Image from 'next/image';
+import { LockKeyhole, Mail } from 'lucide-react';
 import { signInAction } from './actions';
 
 export default function LoginForm({ demoPassword }: { demoPassword: string | null }) {
@@ -35,7 +36,7 @@ export default function LoginForm({ demoPassword }: { demoPassword: string | nul
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="auth-brand"><span><HeartPulse size={24} /></span><strong>HealthAI</strong></div>
+        <div className="auth-brand"><Image src="/moh-logo.jpeg" alt="Ministry of Health, Government of Sierra Leone" width={58} height={58} priority className="auth-moh-logo" /><strong><span>Connaught Hospital</span><small>Management Information System</small></strong></div>
         <p className="auth-eyebrow">SECURE STAFF PORTAL</p>
         <h1>Welcome back</h1>
         <p className="auth-intro">Sign in with your hospital account to continue.</p>

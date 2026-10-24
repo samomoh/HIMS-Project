@@ -14,7 +14,7 @@ export async function deletePatientAction(patientId: number): Promise<{ success:
   if (!Number.isSafeInteger(patientId) || patientId <= 0) return { success: false, message: 'Patient record ID is invalid.' };
   const patient = await db.query.patients.findFirst({ where: eq(patients.id, patientId) });
   if (!patient) return { success: false, message: 'Patient record not found.' };
-  const references = await db.execute<{ references: number }>(sql`SELECT
+  const references = await db.execute<{ reference_count: number | string }>(sql`SELECT
     (SELECT count(*) FROM appointments WHERE patient_id = ${patientId}) +
     (SELECT count(*) FROM medical_records WHERE patient_id = ${patientId}) +
     (SELECT count(*) FROM vitals WHERE patient_id = ${patientId}) +

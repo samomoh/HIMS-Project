@@ -25,6 +25,9 @@ const permissions: Array<[string, Role[]]> = [
   ['/appointments', ['super_admin', 'admin', 'doctor', 'specialist', 'receptionist']],
   ['/patients', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'emergency', 'medical_records']],
   ['/settings', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support']],
+  ['/menu-management', ['super_admin', 'admin']],
+  ['/workflow-studio', ['super_admin']],
+  ['/workflows', ['super_admin']],
   ['/', ['super_admin', 'admin', 'doctor', 'specialist', 'nurse', 'receptionist', 'pharmacist', 'laboratory', 'radiology', 'emergency', 'medical_records', 'health_authority', 'ict_support', 'hr']],
 ];
 

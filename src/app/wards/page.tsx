@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function WardsPage() {
   const actor = await currentUser();
   if (!actor) return null;
+  const asOf = new Date();
   const selectAdmissionRows = () => db.select({
     id: wardAdmissions.id, admissionNumber: wardAdmissions.admissionNumber, patientId: patients.id,
     patientName: patients.firstName, patientLastName: patients.lastName, dob: patients.dob,
@@ -60,6 +61,7 @@ export default async function WardsPage() {
 
   return <WardsClient
     actorRole={actor.role}
+    asOf={asOf}
     wards={bedList}
     clinicians={clinicianList}
     patients={patientList}
